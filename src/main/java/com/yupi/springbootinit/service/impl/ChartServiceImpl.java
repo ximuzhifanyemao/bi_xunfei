@@ -3,7 +3,7 @@ package com.yupi.springbootinit.service.impl;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.service.ChartService;
-import com.yupi.springbootinit.mapper.ChatMapper;
+import com.yupi.springbootinit.mapper.ChartMapper;
 import org.springframework.stereotype.Service;
 
 /**
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 * @createDate 2024-03-02 09:15:06
 */
 @Service
-public class ChartServiceImpl extends ServiceImpl<ChatMapper, Chart>
+public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     implements ChartService {
 
 }
