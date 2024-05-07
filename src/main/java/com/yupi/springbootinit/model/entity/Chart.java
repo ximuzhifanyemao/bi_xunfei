@@ -48,6 +48,10 @@ public class Chart implements Serializable {
      * 生成的图表结论
      */
     private String genResult;
+    /**
+     * 图表状态
+     */
+    private String state;
 
     /**
      * 用户id

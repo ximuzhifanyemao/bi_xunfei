@@ -12,8 +12,10 @@ import java.util.Map;
 * @createDate 2024-03-02 09:51:25
 * @Entity com.yupi.springbootinit.model.entity.Chat
 */
+//public interface ChartMapper extends BaseMapper<Chart> {
+//    List<Map<String,Object>> queryChartData(String quertSql);
+//}
 public interface ChartMapper extends BaseMapper<Chart> {
-    List<Map<String,Object>> queryChartData(String quertSql);
 }
 
 

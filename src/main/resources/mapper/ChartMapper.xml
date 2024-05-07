@@ -12,6 +12,7 @@
             <result property="chartType" column="chartType" jdbcType="VARCHAR"/>
             <result property="genChart" column="genChart" jdbcType="VARCHAR"/>
             <result property="genResult" column="genResult" jdbcType="VARCHAR"/>
+            <result property="state" column="state" jdbcType="VARCHAR"/>
             <result property="userId" column="userID" jdbcType="BIGINT"/>
             <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
             <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
@@ -20,12 +21,12 @@
 
     <sql id="Base_Column_List">
         id,`name`,goal,chartData,
-        chartType,genChart,genResult,userID,
+        chartType,genChart,genResult,state,userID,
         createTime,updateTime,isDelete
     </sql>
 
-    <select id="queryChartData" parameterType="string" resultType="map">
-        ${querySql}
-    </select>
+<!--    <select id="queryChartData" parameterType="string" resultType="map">-->
+<!--        ${querySql}-->
+<!--    </select>-->
 
 </mapper>

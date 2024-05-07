@@ -20,10 +20,12 @@ import com.yupi.springbootinit.model.dto.chart.*;
 import com.yupi.springbootinit.model.dto.file.UploadFileRequest;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
+import com.yupi.springbootinit.model.enums.ChartStateEnum;
 import com.yupi.springbootinit.model.enums.FileUploadBizEnum;
 import com.yupi.springbootinit.model.vo.BiResponse;
 import com.yupi.springbootinit.service.ChartService;
 import com.yupi.springbootinit.service.UserService;
+import com.yupi.springbootinit.utils.AiUtils;
 import com.yupi.springbootinit.utils.ExcelUtils;
 import com.yupi.springbootinit.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.annotations.One;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -61,6 +64,9 @@ public class ChartController {
 
     @Resource
     private RedisLimiterManager redisLimiterManager;
+
+    @Resource
+    RedissonClient redissonClient;
 
     private final static Gson GSON = new Gson();
 
@@ -235,7 +241,7 @@ public class ChartController {
      * @return
      */
     @PostMapping("/gen")
-    public BaseResponse<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
+    public BaseResponse<AiResultDto> genChartByAi(@RequestPart("file") MultipartFile multipartFile,
                                              GenChartByAiRequest GenChartByAiRequest, HttpServletRequest request) {
         String name = GenChartByAiRequest.getName();
         String goal = GenChartByAiRequest.getGoal();
@@ -252,12 +258,23 @@ public class ChartController {
         ThrowUtils.throwIf(size > ONE_MB,ErrorCode.PARAMS_ERROR,"文件大小超过1MB");
         // 校验文件后缀
         String suffix = FileUtil.getSuffix(originalFilename);
-        final List<String> validFileSuffixList = Arrays.asList("png","jpg","svg","webp","jpeg");
+        final List<String> validFileSuffixList = Arrays.asList("png","jpg","svg","webp","jpeg","csv");
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix),ErrorCode.PARAMS_ERROR,"文件后缀非法");
 
         User loginUser = userService.getLoginUser(request);
         // 每个用户一个限流器
         redisLimiterManager.doRateLimit("genChartByAi_" + loginUser.getId());
+
+
+        StringBuffer res = new StringBuffer();
+        res.append("你是一个数据分析师和前端开发专家，接下来我会按照以下固定格式给你提供内容：");
+        res.append("\n").append("分析需求：").append("\n").append("{").append(goal).append("}").append("\n");
+
+        String csvData = ExcelUtils.excelToCsv(multipartFile);
+        res.append("原始数据:").append("\n").append(csvData);
+        res.append("请根据这两部分内容，按照以下指定格式生成内容（此外不要输出任何多余的开头、结尾、注释）\n【【【【【\n先输出上面原始数据的分析结果：\n然后输出【【【【【\n{前端 Echarts V5 的 option 配置对象JSON代码，生成");
+        res.append(chartType);
+        res.append("合理地将数据进行可视化，不要生成任何多余的内容，不要注释}");
 //        final String prompt = "你是一个数据分析师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
 //                "分析需求：\n"+
 //                "{数据分析的需求或者目标}\n"+
@@ -268,49 +285,60 @@ public class ChartController {
 //                "{前端Echarts V5 的 option 配置对象js代码，合理地将数据进行可视化，不要生成任何多余的内容，比如注释}\n"+
 //                "】】】】】\n"+
 //                "{明确的数据分析结论，越详细越好，不要生成多余的内容}";
-        long biModelId = 1773314983330217985L;
+//        long biModelId = 1773314983330217985L;
+//
+//        //用户输入
+//        StringBuilder userInput = new StringBuilder();
+//        userInput.append("分析需求:").append("\n");
+//        //拼接分析目标
+//        String userGoal = goal;
+//        if(StringUtils.isNotBlank(chartType))
+//        {
+//            userGoal += ",请使用" + chartType;
+//        }
+//        userInput.append(userGoal).append("\n");
+//        userInput.append("原始数据:").append("\n");
+//        //压缩后的数据
+//        String csvData =  ExcelUtils.excelToCsv(multipartFile);
+//        userInput.append(csvData).append("\n");
+//
+//        String result =  aiManager.doChat(biModelId,userInput.toString());
+//        String[] splits = result.split("【【【【【");
+//        if (splits.length < 3 )
+//        {
+//            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "Ai 生成错误");
+//        }
+//
+//        String genchart = splits[1].trim();
+//        String genResult = splits[2].trim();
 
-        //用户输入
-        StringBuilder userInput = new StringBuilder();
-        userInput.append("分析需求:").append("\n");
-        //拼接分析目标
-        String userGoal = goal;
-        if(StringUtils.isNotBlank(chartType))
-        {
-            userGoal += ",请使用" + chartType;
-        }
-        userInput.append(userGoal).append("\n");
-        userInput.append("原始数据:").append("\n");
-        //压缩后的数据
-        String csvData =  ExcelUtils.excelToCsv(multipartFile);
-        userInput.append(csvData).append("\n");
 
-        String result =  aiManager.doChat(biModelId,userInput.toString());
-        String[] splits = result.split("【【【【【");
-        if (splits.length < 3 )
-        {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "Ai 生成错误");
-        }
 
-        String genchart = splits[1].trim();
-        String genResult = splits[2].trim();
         //插入到数据库
         Chart chart = new Chart();
         chart.setName(name);
         chart.setGoal(goal);
         chart.setChartData(csvData);
         chart.setChartType(chartType);
-        chart.setGenChart(genchart);
-        chart.setGenResult(genResult);
+//        chart.setGenChart(genchart);
+//        chart.setGenResult(genResult);
         chart.setUserId(loginUser.getId());
         boolean savaResult = chartService.save(chart);
         ThrowUtils.throwIf(!savaResult,ErrorCode.SYSTEM_ERROR,"图表保存失败");
 
-        BiResponse biResponse = new BiResponse();
-        biResponse.setGenChart(genchart);
-        biResponse.setGenResult(genResult);
-        biResponse.setChartId(chart.getId());
-        return ResultUtils.success(biResponse);//返回给前端
+        //调用ai
+        AiUtils aiUtils = new AiUtils(redissonClient);
+        AiResultDto ans = aiUtils.getAns(chart.getId(), res.toString());
+        chart.setGenChart(ans.getChartData());
+        chart.setGenResult(ans.getOnAnalysis());
+
+
+        chart.setGenResult(ans.getOnAnalysis());
+//        chart.setState(ChartStateEnum.SUCCEED.getValue());
+        savaResult = chartService.updateById(chart);
+        ThrowUtils.throwIf(!savaResult, ErrorCode.SYSTEM_ERROR, "图表状态更新失败");
+        ans.setChartId(chart.getId());
+        return ResultUtils.success(ans);
 
 //        //读取用户上传的excel 进一步处理
 //        User loginUser = userService.getLoginUser(request);
